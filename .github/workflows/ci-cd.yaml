@@ -38,8 +38,8 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v3
         with:
           args: >
-            -Dsonar.projectKey=Norahbiju_bookingservice
-            -Dsonar.organization=norahbiju
+            -Dsonar.projectKey=bookingservice
+            
             -Dsonar.sources=. 
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
 
       # ❌ Failure Email (Detailed)
       - name: Send Failure Email
-        if: failure()
+        if: failure()&& steps.sonar.outcome == 'failure'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
