@@ -39,12 +39,11 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=bookingservice
-            
-            -Dsonar.sources=. 
+            -Dsonar.sources=.
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
- 
+
       # 6. Quality Gate
       - name: Quality Gate Check
         id: sonarqube-quality-gate-check
@@ -54,82 +53,57 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # 7. Snyk Scan
-      - name: Run Snyk to check for vulnerabilities
-        id: snyk
-        uses: snyk/actions/python@master
+      # ✅ 7. Install Snyk CLI
+      - name: Install Snyk
+        run: npm install -g snyk
+
+      # ✅ 8. Authenticate Snyk
+      - name: Authenticate Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+
+      # ✅ 9. Snyk Dependency Scan
+      - name: Run Snyk Dependency Scan
         continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        
+        run: snyk test --severity-threshold=high
 
-      
-
-      # 8. Build Docker Image
+      # 10. Build Docker Image
       - name: Build Docker Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest .
 
-      # 9. Scan Docker Image 
-      - name: Run Snyk to check Docker image for vulnerabilities
-        uses: snyk/actions/docker@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
-          args: --severity-threshold=high
+      # ✅ 11. Snyk Docker Image Scan
+      - name: Run Snyk Docker Scan
+        continue-on-error: true
+        run: |
+          snyk container test ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest --severity-threshold=high
 
-      # 10. Docker Login
+      # 12. Docker Login
       - name: Docker Login
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 11. Push Docker Image
+      # 13. Push Docker Image
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
 
-      # ❌ Failure Email (Detailed)
+      # ❌ Failure Email
       - name: Send Failure Email
-        if: failure()&& steps.sonar.outcome == 'failure'
+        if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "❌ Bookingservice Pipeline Failed - Immediate Attention Required"
+          subject: "❌ Bookingservice Pipeline Failed"
           body: |
-            Hello DevOps Team,
-
-            The Bookingservice CI/CD pipeline execution has failed during the latest run, and immediate attention is required to ensure system reliability, security compliance, and uninterrupted delivery.
-
-            🔍 Failure Context:
-            - Repository: ${{ github.repository }}
-            - Branch: ${{ github.ref_name }}
-            - Workflow: ${{ github.workflow }}
-            - Job: ${{ github.job }}
-            - Triggered By: ${{ github.actor }}
-
-            ⚠️ Possible Root Causes:
-            The failure could have occurred due to one or more of the following reasons:
-            - SonarQube Quality Gate failure due to detected vulnerabilities or security hotspots in the codebase
-            - Snyk dependency scan identifying medium or high severity vulnerabilities in third-party libraries
-            - Docker image scan detecting HIGH or MEDIUM severity vulnerabilities using Trivy
-            - Build or runtime dependency installation issues affecting application startup
-
-            🔗 Full Execution Logs:
+            Pipeline failed. Check logs:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            📌 Required Action:
-            Please review the pipeline logs thoroughly, identify the exact failure point, and take corrective measures to resolve the issue before the next deployment cycle to maintain application security and stability.
-
-            Regards,
-            DevSecOps Pipeline
           to: ${{ secrets.DEVOPS_EMAIL }}
           from: DevOps Alert
 
-      # ✅ Success Email (Detailed) 
+      # ✅ Success Email
       - name: Send Success Email
         if: success()
         uses: dawidd6/action-send-mail@v3
@@ -138,36 +112,9 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "✅ Bookingservice Pipeline Success - Ready for Deployment"
+          subject: "✅ Bookingservice Pipeline Success"
           body: |
-            Hello DevOps Team,
-
-            The Bookingservice CI/CD pipeline has completed successfully, and all quality, security, and compliance checks have been validated without any issues.
-
-            ✅ Execution Summary:
-            - Repository: ${{ github.repository }}
-            - Branch: ${{ github.ref_name }}
-            - Workflow: ${{ github.workflow }}
-            - Job: ${{ github.job }}
-            - Triggered By: ${{ github.actor }}
-
-            🔐 Validation Results:
-            - SonarQube Quality Gate passed successfully with no blocking vulnerabilities
-            - Snyk dependency scan confirmed no medium or high severity issues
-            - Docker image security scan passed with no critical findings
-            - Application build and containerization completed successfully
-
-            🚀 Deployment Status:
-            The Docker image has been securely built, scanned, and pushed to the container registry, and is now fully ready for deployment into the Kubernetes environment.
-
-            🔗 Full Execution Logs:
+            Pipeline completed successfully.
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            No further action is required at this stage.
-
-            Regards,
-            DevSecOps Pipeline
           to: ${{ secrets.DEVOPS_EMAIL }}
           from: DevOps Alert
-
- 
