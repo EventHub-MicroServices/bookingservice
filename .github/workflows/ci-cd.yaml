@@ -45,7 +45,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
+ 
       # 6. Quality Gate
       - name: Quality Gate Check
         id: sonarqube-quality-gate-check
