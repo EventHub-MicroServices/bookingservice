@@ -67,7 +67,7 @@ jobs:
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest .
 
-      # 9. Scan Docker Image
+      # 9. Scan Docker Image 
       - name: Scan Docker Image
         uses: aquasecurity/trivy-action@master
         with:
