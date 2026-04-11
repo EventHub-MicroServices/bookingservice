@@ -36,18 +36,19 @@ jobs:
 
       # 5. SonarQube Scan
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v2
+        uses: SonarSource/sonarqube-scan-action@v3
         with:
           args: >
             -Dsonar.projectKey=Norahbiju_bookingservice
             -Dsonar.organization=norahbiju
-            -Dsonar.sources=src
+            -Dsonar.sources=. 
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       # 6. Quality Gate
       - name: Quality Gate Check
+        id: sonarqube-quality-gate-check
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
