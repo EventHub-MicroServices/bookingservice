@@ -1,0 +1,128 @@
+﻿name: Bookingservice CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+    inputs:
+      run_pipeline:
+        description: 'Pipeline path'
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - code-quality-only
+          - docker-only
+
+jobs:
+  pipeline:
+    name: CI/CD for ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [bookingservice]
+        sonar_project_key: [Norahbiju_bookingservice]
+    env:
+      SERVICE_NAME: ${{ matrix.service }}
+      SONAR_PROJECT_KEY: ${{ matrix.sonar_project_key }}
+      IMAGE_NAME: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('src/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/requirements.txt
+          pip install flake8 snyk
+
+      - name: Run static code quality
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
+        run: |
+          flake8 src
+          python -m py_compile src/*.py
+
+      - name: SonarCloud Scan
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=norahbiju
+            -Dsonar.sources=src
+            -Dsonar.python.version=3.11
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarCloud Quality Gate
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
+        uses: SonarSource/sonarcloud-quality-gate-action@master
+        with:
+          sonarToken: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Snyk SCA scan
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline == 'full' }}
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk auth $SNYK_TOKEN
+          snyk test --file=src/requirements.txt --json | tee snyk-report.json
+
+      - name: Docker login
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
+        run: docker build -t $IMAGE_NAME -f Dockerfile .
+
+      - name: Scan Docker image for vulnerabilities
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
+        uses: aquasecurity/trivy-action@v0.10.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '1'
+
+      - name: Push Docker image to Docker Hub
+        if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only') && success() }}
+        run: docker push $IMAGE_NAME
+
+      - name: Notify development team on failure
+        if: ${{ always() && failure() }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pipeline = github.context.payload.inputs?.run_pipeline || 'full';
+            const title = `CI/CD failure for ${process.env.SERVICE_NAME} (${pipeline})`;
+            const body = `The CI/CD pipeline failed for service **${process.env.SERVICE_NAME}**.\n\nWorkflow: ${github.context.workflow}\nRun: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n\nPlease review the failed step and address the reported vulnerabilities or quality gate issues.`;
+            await github.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });
