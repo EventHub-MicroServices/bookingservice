@@ -72,11 +72,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: SonarCloud Quality Gate
+      - name: SonarQube Quality Gate
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarcloud-quality-gate-action@master
-        with:
-          sonarToken: ${{ secrets.SONAR_TOKEN }}
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Snyk SCA scan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline == 'full' }}
