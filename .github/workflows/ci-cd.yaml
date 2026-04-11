@@ -56,15 +56,14 @@ jobs:
 
       # 7. Snyk Scan
       - name: Run Snyk on backend
-        uses: snyk/actions/python@v4
         run: |
           npm install -g snyk
-          cd src
-          snyk test --file=requirements.txt --sarif-file-output=../snyk.sarif
+          snyk auth $SNYK_TOKEN
+          snyk test --file=src/requirements.txt --json --sarif-file-output=snyk.sarif
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true
- 
+
       - name: Upload Snyk backend results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
