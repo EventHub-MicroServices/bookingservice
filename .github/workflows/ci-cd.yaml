@@ -70,7 +70,7 @@ jobs:
           args: >
             -Dsonar.projectKey=Norahbiju_bookingservice
             -Dsonar.organization=norahbiju
-            -Dsonar.sources=src
+            -Dsonar.sources=src 
             -Dsonar.python.version=3.11
             -Dsonar.host.url=https://sonarcloud.io
         env:
