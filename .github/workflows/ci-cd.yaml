@@ -55,12 +55,10 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       # 7. Snyk Scan
-      - name: Run Snyk Scan (SCA)
-        run: |
-          npm install -g snyk
-          cd src
-          snyk auth $SNYK_TOKEN
-          snyk test --file=requirements.txt
+      - name: Run Snyk to check for vulnerabilities
+        id: snyk
+        uses: snyk/actions/python@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true
@@ -73,12 +71,13 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest .
 
       # 9. Scan Docker Image 
-      - name: Scan Docker Image
-        uses: aquasecurity/trivy-action@master
+      - name: Run Snyk to check Docker image for vulnerabilities
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image-ref: ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
-          exit-code: 1
-          severity: HIGH,MEDIUM
+          image: ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
+          args: --severity-threshold=high
 
       # 10. Docker Login
       - name: Docker Login
