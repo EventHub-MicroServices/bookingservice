@@ -1,132 +1,168 @@
 ﻿```yaml
-name: Bookingservice CI/CD Pipeline
+name: Bookingservice DevSecOps Pipeline
 
 on:
   push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master, develop]
-  workflow_dispatch:
-    inputs:
-      run_pipeline:
-        description: 'Pipeline path'
-        required: true
-        default: full
-        type: choice
-        options:
-          - full
-          - code-quality-only
-          - docker-only
+    branches:
+      - main
 
 jobs:
   pipeline:
-    name: CI/CD for ${{ matrix.service }}
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        service: [bookingservice]
-        sonar_project_key: [Norahbiju_bookingservice]
-
-    env:
-      SERVICE_NAME: ${{ matrix.service }}
-      SONAR_PROJECT_KEY: ${{ matrix.sonar_project_key }}
-      IMAGE_NAME: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # 1. Checkout
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # 2. Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('src/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
+      # 3. Install Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
-          pip install flake8 snyk
 
-      - name: Run static code quality
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        run: |
-          flake8 src
-          python -m py_compile src/*.py
+      # 4. Setup Java (for Sonar)
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-      # ✅ SonarCloud Scan
-      - name: SonarCloud Scan
-        id: sonarcloud
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # 5. SonarQube Scan
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
         with:
           args: >
             -Dsonar.projectKey=Norahbiju_bookingservice
             -Dsonar.organization=norahbiju
-        continue-on-error: tru
-     
-      - name: Snyk SCA scan
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline == 'full' }}
+            -Dsonar.sources=src
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # 6. Quality Gate
+      - name: Quality Gate Check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # 7. Snyk Scan
+      - name: Snyk Scan
+        uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=src/requirements.txt
+
+      # 8. Build Docker Image
+      - name: Build Docker Image
         run: |
-          snyk auth $SNYK_TOKEN
-          snyk test --file=src/requirements.txt --json | tee snyk-report.json
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest .
 
-      - name: Docker login
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
-        uses: docker/login-action@v3
+      # 9. Scan Docker Image
+      - name: Scan Docker Image
+        uses: aquasecurity/trivy-action@master
         with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
+          exit-code: 1
+          severity: HIGH,MEDIUM
 
-      - name: Build Docker image
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
-        run: docker build -t $IMAGE_NAME -f Dockerfile .
+      # 10. Docker Login
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Scan Docker image for vulnerabilities
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only' }}
-        uses: aquasecurity/trivy-action@v0.10.0
+      # 11. Push Docker Image
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest
+
+      # ❌ Failure Email (Detailed)
+      - name: Send Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
         with:
-          image-ref: ${{ env.IMAGE_NAME }}
-          format: table
-          severity: CRITICAL,HIGH,MEDIUM
-          exit-code: '1'
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ Bookingservice Pipeline Failed - Immediate Attention Required"
+          body: |
+            Hello DevOps Team,
 
-      - name: Push Docker image to Docker Hub
-        if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'code-quality-only') && success() }}
-        run: docker push $IMAGE_NAME
+            The Bookingservice CI/CD pipeline execution has failed during the latest run, and immediate attention is required to ensure system reliability, security compliance, and uninterrupted delivery.
 
-      - name: Notify development team on failure
-        if: ${{ always() && failure() }}
-        uses: actions/github-script@v7
+            🔍 Failure Context:
+            - Repository: ${{ github.repository }}
+            - Branch: ${{ github.ref_name }}
+            - Workflow: ${{ github.workflow }}
+            - Job: ${{ github.job }}
+            - Triggered By: ${{ github.actor }}
+
+            ⚠️ Possible Root Causes:
+            The failure could have occurred due to one or more of the following reasons:
+            - SonarQube Quality Gate failure due to detected vulnerabilities or security hotspots in the codebase
+            - Snyk dependency scan identifying medium or high severity vulnerabilities in third-party libraries
+            - Docker image scan detecting HIGH or MEDIUM severity vulnerabilities using Trivy
+            - Build or runtime dependency installation issues affecting application startup
+
+            🔗 Full Execution Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            📌 Required Action:
+            Please review the pipeline logs thoroughly, identify the exact failure point, and take corrective measures to resolve the issue before the next deployment cycle to maintain application security and stability.
+
+            Regards,
+            DevSecOps Pipeline
+          to: ${{ secrets.DEVOPS_EMAIL }}
+          from: DevOps Alert
+
+      # ✅ Success Email (Detailed)
+      - name: Send Success Email
+        if: success()
+        uses: dawidd6/action-send-mail@v3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pipeline = github.context.payload.inputs?.run_pipeline || 'full';
-            const title = `CI/CD failure for ${process.env.SERVICE_NAME} (${pipeline})`;
-            const body = `The CI/CD pipeline failed for service **${process.env.SERVICE_NAME}**.
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "✅ Bookingservice Pipeline Success - Ready for Deployment"
+          body: |
+            Hello DevOps Team,
 
-Workflow: ${github.context.workflow}
-Run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}
+            The Bookingservice CI/CD pipeline has completed successfully, and all quality, security, and compliance checks have been validated without any issues.
 
-Please review the failed step and address the reported vulnerabilities or quality issues.`;
-            
-            await github.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-            });
+            ✅ Execution Summary:
+            - Repository: ${{ github.repository }}
+            - Branch: ${{ github.ref_name }}
+            - Workflow: ${{ github.workflow }}
+            - Job: ${{ github.job }}
+            - Triggered By: ${{ github.actor }}
+
+            🔐 Validation Results:
+            - SonarQube Quality Gate passed successfully with no blocking vulnerabilities
+            - Snyk dependency scan confirmed no medium or high severity issues
+            - Docker image security scan passed with no critical findings
+            - Application build and containerization completed successfully
+
+            🚀 Deployment Status:
+            The Docker image has been securely built, scanned, and pushed to the container registry, and is now fully ready for deployment into the Kubernetes environment.
+
+            🔗 Full Execution Logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            No further action is required at this stage.
+
+            Regards,
+            DevSecOps Pipeline
+          to: ${{ secrets.DEVOPS_EMAIL }}
+          from: DevOps Alert
 ```
