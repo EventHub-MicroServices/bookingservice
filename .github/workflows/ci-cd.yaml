@@ -125,7 +125,7 @@ jobs:
           to: ${{ secrets.DEVOPS_EMAIL }}
           from: DevOps Alert
 
-      # ✅ Success Email (Detailed)
+      # ✅ Success Email (Detailed) 
       - name: Send Success Email
         if: success()
         uses: dawidd6/action-send-mail@v3
