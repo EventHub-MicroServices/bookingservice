@@ -63,19 +63,22 @@ jobs:
           python -m py_compile src/*.py
 
       # ✅ FIXED SonarCloud Step (single correct step)
-      - name: SonarCloud Scan
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarcloud-github-action@v2
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         with:
           args: >
             -Dsonar.projectKey=Norahbiju_bookingservice
-            -Dsonar.organization=norahbiju
-            -Dsonar.sources=src 
-            -Dsonar.python.version=3.11
-            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.sources=.
+ 
+      - name: SonarQube Quality Gate Check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
       - name: Snyk SCA scan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline == 'full' }}
         env:
