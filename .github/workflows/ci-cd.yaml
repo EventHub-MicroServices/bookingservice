@@ -1,5 +1,4 @@
-﻿```yaml
-name: Bookingservice DevSecOps Pipeline
+﻿name: Bookingservice DevSecOps Pipeline
 
 on:
   push:
