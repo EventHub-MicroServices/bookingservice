@@ -1,4 +1,5 @@
-﻿name: Bookingservice CI/CD Pipeline
+﻿```yaml
+name: Bookingservice CI/CD Pipeline
 
 on:
   push:
@@ -21,10 +22,12 @@ jobs:
   pipeline:
     name: CI/CD for ${{ matrix.service }}
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         service: [bookingservice]
         sonar_project_key: [Norahbiju_bookingservice]
+
     env:
       SERVICE_NAME: ${{ matrix.service }}
       SONAR_PROJECT_KEY: ${{ matrix.sonar_project_key }}
@@ -59,12 +62,7 @@ jobs:
           flake8 src
           python -m py_compile src/*.py
 
-      - name: SonarCloud Quality Gate
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+      # ✅ FIXED SonarCloud Step (single correct step)
       - name: SonarCloud Scan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
         uses: SonarSource/sonarcloud-github-action@v2
@@ -74,7 +72,7 @@ jobs:
             -Dsonar.organization=norahbiju
             -Dsonar.sources=src
             -Dsonar.python.version=3.11
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.host.url=https://sonarcloud.io
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -119,10 +117,17 @@ jobs:
           script: |
             const pipeline = github.context.payload.inputs?.run_pipeline || 'full';
             const title = `CI/CD failure for ${process.env.SERVICE_NAME} (${pipeline})`;
-            const body = `The CI/CD pipeline failed for service **${process.env.SERVICE_NAME}**.\n\nWorkflow: ${github.context.workflow}\nRun: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}\n\nPlease review the failed step and address the reported vulnerabilities or quality gate issues.`;
+            const body = `The CI/CD pipeline failed for service **${process.env.SERVICE_NAME}**.
+
+Workflow: ${github.context.workflow}
+Run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}
+
+Please review the failed step and address the reported vulnerabilities or quality issues.`;
+            
             await github.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title,
               body,
             });
+```
