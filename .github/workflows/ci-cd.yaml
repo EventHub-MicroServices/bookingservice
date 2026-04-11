@@ -59,24 +59,22 @@ jobs:
           flake8 src
           python -m py_compile src/*.py
 
+      - name: SonarCloud Quality Gate
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: SonarCloud Scan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarcloud-github-action@v2
         with:
           args: >
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.projectKey=Norahbiju_bookingservice
             -Dsonar.organization=norahbiju
             -Dsonar.sources=src
             -Dsonar.python.version=3.11
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: SonarQube Quality Gate
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarqube-quality-gate-action@v1.1.0
-        timeout-minutes: 5
-        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
