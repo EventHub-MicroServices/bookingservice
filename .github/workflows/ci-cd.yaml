@@ -55,14 +55,16 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       # 7. Snyk Scan
-      - name: Snyk Scan
-        uses: snyk/actions/python@v4
+      - name: Run Snyk Scan (SCA)
+        run: |
+          npm install -g snyk
+          cd src
+          snyk auth $SNYK_TOKEN
+          snyk test --file=requirements.txt
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --file=src/requirements.txt
         continue-on-error: true
- 
+
       
 
       # 8. Build Docker Image
