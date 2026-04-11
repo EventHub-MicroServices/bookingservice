@@ -55,14 +55,12 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       # 7. Snyk Scan
-      - name: Run Snyk on backend
-        run: |
-          npm install -g snyk
-          snyk auth $SNYK_TOKEN
-          snyk test --file=src/requirements.txt --json --sarif-file-output=snyk.sarif
+      - name: Snyk Scan
+        uses: snyk/actions/python@v4
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        continue-on-error: true
+        with:
+          args: --file=src/requirements.txt
 
       - name: Upload Snyk backend results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
