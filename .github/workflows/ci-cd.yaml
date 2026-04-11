@@ -74,7 +74,7 @@ jobs:
 
       - name: SonarQube Quality Gate
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.run_pipeline != 'docker-only' }}
-        uses: SonarSource/sonarqube-quality-gate-action@master
+        uses: SonarSource/sonarqube-quality-gate-action@v1.1.0
         timeout-minutes: 5
         continue-on-error: true
         env:
