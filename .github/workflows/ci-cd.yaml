@@ -122,4 +122,4 @@ jobs:
             Pipeline completed successfully.
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.DEVOPS_EMAIL }}
-          from: DevOps Alert 
+          from: DevOps Alert  
