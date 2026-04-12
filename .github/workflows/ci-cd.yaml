@@ -57,14 +57,13 @@ jobs:
       - name: Install Snyk
         run: npm install -g snyk
 
-      # ✅ 8. Authenticate Snyk
-      - name: Authenticate Snyk
-        run: snyk auth ${{ secrets.SNYK_TOKEN }}
-
-      # ✅ 9. Snyk Dependency Scan
+      # ✅ 8. Run Snyk Dependency Scan
       - name: Run Snyk Dependency Scan
         continue-on-error: true
-        run: snyk test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk test --file=requirements.txt
 
       # 10. Build Docker Image
       - name: Build Docker Image
