@@ -62,7 +62,7 @@ jobs:
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
+        run: | 
           snyk test --file=requirements.txt
 
       # 10. Build Docker Image
