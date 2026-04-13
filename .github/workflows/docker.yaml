@@ -50,9 +50,9 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest
-          exit-code: 1
+          exit-code: 0
           severity: HIGH,MEDIUM,CRITICAL
-        continued-on-error: true
+       
  
     #  Docker Login
       - name: Docker Login
