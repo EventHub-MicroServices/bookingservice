@@ -1,9 +1,11 @@
-﻿name: Bookingservice DevSecOps Pipeline
+﻿name: Bookingservice Sonar and Snyk
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   pipeline:
@@ -63,33 +65,7 @@ jobs:
   
       
 
-      # 9. Build Docker Image
-      - name: Build Docker Image
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest .
-
-      # 10.Trivy Docker Scan 
-      - name: Scan Docker Image
-        id: trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest
-          format: table
-          exit-code: 0
-          severity: HIGH,MEDIUM,CRITICAL
-
-      # 11. Docker Login (FIXED)
-      - name: Docker Login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # 12. Push Docker Image
-      - name: Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest
-
+    
       # ❌ Failure Email
       - name: Send Failure Email
         if: failure()
@@ -99,25 +75,11 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "❌ Bookingservice Pipeline Failed"
+          subject: "❌ Bookingservice sonar or snyk pipeline failed"
           body: |
             Pipeline failed. Check logs:
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.DEVOPS_EMAIL }}
           from: DevOps Alert
 
-      # ✅ Success Email
-      - name: Send Success Email
-        if: success()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "✅ Bookingservice Pipeline Success"
-          body: |
-            Pipeline completed successfully.
-            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          to: ${{ secrets.DEVOPS_EMAIL }}
-          from: DevOps Alert 
+     

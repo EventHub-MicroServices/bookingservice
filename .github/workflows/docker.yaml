@@ -1,0 +1,68 @@
+name: CI - Docker Build, Scan and Push
+ 
+on:
+  workflow_run:
+    workflows: ["Bookingservice Sonar and Snyk"]
+    types:
+      - completed
+ 
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker Image Tag (format: vX.X.X)"
+        required: true
+ 
+jobs:
+  docker:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+ 
+    steps:
+# ---------------- VALIDATE IMAGE TAG ----------------
+      - name: Validate Image Tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+ 
+          if [ -z "$TAG" ]; then
+            echo "Image tag is required"
+            exit 1
+          fi
+ 
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format. Use vX.X.X (e.g., v1.1.1)"
+            exit 1
+          fi
+ 
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+
+      # ✅ Success Email
+      - name: Send Success Email
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "✅ Bookingservice Pipeline Success"
+          body: |
+            Pipeline completed successfully.
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.DEVOPS_EMAIL }}
+          from: DevOps Alert 
+
+       # ❌ Failure Email
+      - name: Send Failure Email
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "❌ Bookingservice sonar or snyk pipeline failed"
+          body: |
+            Pipeline failed. Check logs:
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.DEVOPS_EMAIL }}
+          from: DevOps Alert
