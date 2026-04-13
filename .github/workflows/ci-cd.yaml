@@ -57,23 +57,20 @@ jobs:
       - name: Install Snyk
         run: npm install -g snyk
 
-      # 🔍 Debug (optional but useful)
-      - name: Debug Snyk Auth
-        run: snyk config get api || true
-
-      # 8. Snyk Dependency Scan (FIXED)
-      - name: Run Snyk Dependency Scan
-        continue-on-error: true
-        run: |
-          snyk config set api=${{ secrets.SNYK_TOKEN }}
-          snyk test --file=requirements.txt --severity-threshold=high
+      - name: Snyk Scan
+        id: snyk
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium
 
       # 9. Build Docker Image
       - name: Build Docker Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/bookingservice:latest .
 
-      # 10. Snyk Docker Scan (FIXED)
+      # 10. Snyk Docker Scan 
       - name: Run Snyk Docker Scan
         continue-on-error: true
         run: |
@@ -122,4 +119,4 @@ jobs:
             Pipeline completed successfully.
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           to: ${{ secrets.DEVOPS_EMAIL }}
-          from: DevOps Alert  
+          from: DevOps Alert 
