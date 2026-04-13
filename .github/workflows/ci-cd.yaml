@@ -76,7 +76,7 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest
           format: table
           exit-code: 0
-          severity: HIGH,MEDIUM 
+          severity: HIGH,MEDIUM,CRITICAL
 
       # 11. Docker Login (FIXED)
       - name: Docker Login
