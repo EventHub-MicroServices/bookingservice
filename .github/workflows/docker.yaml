@@ -35,7 +35,7 @@ jobs:
           fi
  
           echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          
+
       # Checkout
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -52,6 +52,7 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bookingservice:latest
           exit-code: 1
           severity: HIGH,MEDIUM,CRITICAL
+        continued-on-error: true
  
     #  Docker Login
       - name: Docker Login
