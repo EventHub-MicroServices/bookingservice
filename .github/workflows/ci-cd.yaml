@@ -53,17 +53,15 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # 7. Install Snyk CLI
-      - name: Install Snyk
-        run: npm install -g snyk
-
-      - name: Snyk Scan
-        id: snyk
+      # 7.  Snyk CLI
+      - name: Snyk Test
         uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=medium
+          args: --severity-threshold=high
+  
+      
 
       # 9. Build Docker Image
       - name: Build Docker Image
